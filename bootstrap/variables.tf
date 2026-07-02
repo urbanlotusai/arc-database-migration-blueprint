@@ -5,7 +5,7 @@ variable "namespace" {
 }
 
 variable "environment" {
-  description = "Environment name"
+  description = "Environment name (dev, staging, prod)"
   type        = string
   default     = "dev"
 }
@@ -25,14 +25,8 @@ variable "tags" {
   }
 }
 
-variable "state_bucket_name" {
-  description = "S3 bucket name for Terraform state"
-  type        = string
-  default     = ""
-}
-
-variable "vpc_cidr" {
-  description = "CIDR block for the migration VPC."
-  type        = string
-  default     = "10.0.0.0/16"
+variable "enable_bucket_force_destroy" {
+  description = "Allow destruction of the Terraform state S3 bucket even if it contains objects"
+  type        = bool
+  default     = false
 }

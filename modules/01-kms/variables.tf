@@ -1,19 +1,38 @@
-variable "alias" {
-  type = string
+variable "namespace" {
+  description = "Organization or team namespace"
+  type        = string
+  default     = "arc"
 }
 
-variable "policy" {
-  type = string
+variable "environment" {
+  description = "Environment name"
+  type        = string
+  default     = "dev"
 }
 
-variable "description" {
-  type = string
-}
-
-variable "deletion_window_in_days" {
-  type = number
+variable "region" {
+  description = "AWS region"
+  type        = string
+  default     = "us-east-1"
 }
 
 variable "tags" {
-  type = map(string)
+  description = "Tags to apply to resources"
+  type        = map(string)
+  default = {
+    ManagedBy = "Terraform"
+    Project   = "arc-database-migration-blueprint"
+  }
+}
+
+variable "state_bucket_name" {
+  description = "S3 bucket name for Terraform state"
+  type        = string
+  default     = ""
+}
+
+variable "deletion_window_in_days" {
+  description = "Days before a scheduled KMS key deletion takes effect (7-30)."
+  type        = number
+  default     = 30
 }

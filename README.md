@@ -20,7 +20,7 @@
 
 A **ready-to-deploy Terraform blueprint** that sets up a complete AWS Database Migration Service (DMS)
 pipeline by composing **6 [SourceFuse ARC](https://registry.terraform.io/namespaces/modules/sourcefuse)
-modules**. One `terraform apply` gives you:
+modules**. Deploying `bootstrap/` then every module in `modules/` gives you:
 
 - A dedicated **VPC** and security groups for the migration network
 - A **DMS Replication Instance** in private subnets
@@ -37,12 +37,12 @@ Supports full-load, CDC (change data capture), and combined `full-load-and-cdc` 
 
 | Advantage | What it means for you |
 |---|---|
-| **Minutes, not days** | A secure DMS pipeline with networking, encryption, and endpoints normally takes days to wire; this deploys in one command. |
+| **Minutes, not days** | A secure DMS pipeline with networking, encryption, and endpoints normally takes days to wire; this deploys with a handful of commands. |
 | **Secure by default** | Single KMS CMK encrypts the DMS replication instance, target Aurora cluster, and S3 log bucket. All data in transit over SSL. |
 | **Three migration modes** | `full-load`, `cdc`, or `full-load-and-cdc` — switch with a variable, no rewiring required. |
-| **Compliance-ready** | Built-in `general` / `hipaa` / `pci_dss` profiles activate Aurora PITR, deletion protection, and extended log retention. |
+| **Compliance-ready** | Built-in `general` / `hipaa` / `pci` profiles activate Aurora extended backup retention, deletion protection, and extended log retention — no manual edits. |
 | **Start manually** | The replication task is provisioned but not auto-started — test endpoint connectivity first, then trigger with one CLI command. |
-| **Portable & auditable** | Pure Terraform. Reproducible across environments. Rollback is `terraform destroy`. |
+| **Portable & auditable** | Pure Terraform. Independent per-module state, reproducible across environments. Rollback is a per-module `terraform destroy`. |
 
 ---
 
@@ -94,47 +94,56 @@ Supports full-load, CDC (change data capture), and combined `full-load-and-cdc` 
 - **Network connectivity** from the migration VPC to the source database (VPN, Direct Connect, or VPC peering)
 - **Source DB user** with replication privileges (`REPLICATION CLIENT`, `REPLICATION SLAVE` for MySQL; `rds_superuser` or `rds_replication` for PostgreSQL)
 
-### 2. Configure
+### 2. Clone
 
 ```bash
-git clone https://github.com/sourcefuse/arc-database-migration-blueprint.git
+git clone https://github.com/urbanlotusai/arc-database-migration-blueprint.git
 cd arc-database-migration-blueprint
-
-cp examples/general.tfvars terraform.tfvars
 ```
 
-Edit the mandatory values in `terraform.tfvars`:
+This blueprint uses **independent per-module Terraform state** — there is no root `main.tf`. Each `modules/NN-name/` is applied on its own, with cross-module values (like the KMS key ARN, VPC ID, and target Aurora endpoint) resolved via `terraform_remote_state` data sources rather than a parent module.
 
-| Variable | Example |
-|---|---|
-| `environment` | `prod` |
-| `namespace` | `myorg` |
-| `source_db_host` | `10.0.1.50` |
-| `source_db_port` | `5432` |
-| `source_db_name` | `myapp_db` |
-| `source_db_username` | `migration_user` |
-| `source_db_engine` | `postgres` |
-| `target_db_password` | `YourSecurePassword` |
+### 3. Bootstrap the state backend (once per environment)
 
-### 3. Deploy
+```bash
+make bootstrap ENV=dev REGION=us-east-1 NAMESPACE=myorg
+```
 
-| Step | With `make` | Raw Terraform (all OS) |
+Creates the S3 state bucket + DynamoDB lock table every module's backend uses.
+
+### 4. Deploy all modules
+
+```bash
+make apply ENV=dev REGION=us-east-1 NAMESPACE=myorg
+```
+
+This runs `terraform init` + `apply` across `modules/01-kms` through `modules/06-dms` in order. Source database connection details (`source_db_host`, `source_db_port`, `source_db_name`, `source_db_username`, `source_db_engine` — no defaults) must be supplied — either edit `modules/06-dms/tfvars/general.tfvars` or pass `-var` overrides.
+
+### Deploy a single module with a compliance profile
+
+```bash
+./scripts/apply-module.sh 06-dms dev us-east-1 hipaa
+```
+
+Copies `modules/06-dms/tfvars/hipaa.tfvars` → `terraform.tfvars` for that module, then inits/plans/applies it alone.
+
+| Step | With `make` (all modules) | Single module |
 |---|---|---|
-| Validate | `make validate` | `terraform init -backend=false && terraform validate` |
-| Preview | `make plan` | `terraform plan` |
-| Deploy | `make apply` | `terraform init && terraform apply` |
+| Validate | `make validate` | `cd modules/<NN-name> && terraform validate` |
+| Preview | `make plan` | `./scripts/apply-module.sh <name> <env> <region> <profile>` then inspect the plan |
+| Deploy | `make apply` | `./scripts/apply-module.sh <name> <env> <region> <profile>` |
 
-### 4. Test connectivity, then start the migration
+### 5. Test connectivity, then start the migration
 
 ```bash
 # Test source endpoint connectivity first
 aws dms test-connection \
-  --replication-instance-arn $(terraform output -raw dms_replication_instance_arn) \
-  --endpoint-arn $(terraform output -raw dms_source_endpoint_arn)
+  --replication-instance-arn $(terraform -chdir=modules/06-dms output -raw replication_instance_arn) \
+  --endpoint-arn $(terraform -chdir=modules/06-dms output -raw source_endpoint_arn)
 
 # Start the migration task only after connectivity is confirmed
 aws dms start-replication-task \
-  --replication-task-arn $(terraform output -raw dms_replication_task_arn) \
+  --replication-task-arn $(terraform -chdir=modules/06-dms output -raw replication_task_arn) \
   --start-replication-task-type start-replication
 ```
 
@@ -148,7 +157,7 @@ aws dms start-replication-task \
 | `cdc` | Ongoing replication from an existing snapshot |
 | `full-load-and-cdc` | Zero-downtime migration: copy data then stream changes |
 
-Set `migration_type` in `terraform.tfvars` to switch modes.
+Set `migration_type` in `modules/06-dms/tfvars/*.tfvars` (or via `-var`) to switch modes.
 
 ---
 
@@ -156,22 +165,24 @@ Set `migration_type` in `terraform.tfvars` to switch modes.
 
 | Profile | Effect |
 |---|---|
-| `general` | KMS rotation on, 90-day S3 log retention, 7-day Aurora PITR |
-| `hipaa` | Aurora PITR 35 days + deletion protection, 365-day S3 log retention |
-| `pci_dss` | Aurora PITR 35 days + deletion protection, 365-day S3 log retention, Multi-AZ DMS instance |
+| `general` | KMS rotation on, 7-day Aurora backup retention, no deletion protection |
+| `hipaa` | Aurora backup retention extended to 35 days + deletion protection |
+| `pci` | Aurora backup retention extended to 35 days + deletion protection |
+
+Apply a profile to any module with `./scripts/apply-module.sh <module> <env> <region> <profile>`.
 
 ---
 
 ## Key outputs
 
 ```bash
-terraform output dms_replication_instance_arn  # DMS instance
-terraform output dms_source_endpoint_arn       # source endpoint
-terraform output dms_target_endpoint_arn       # target endpoint
-terraform output dms_replication_task_arn      # migration task — start this after connectivity test
-terraform output target_db_cluster_endpoint    # Aurora writer endpoint (for app cutover)
-terraform output log_bucket_id                 # S3 logs
-terraform output kms_key_arn                   # CMK
+terraform -chdir=modules/06-dms output replication_instance_arn  # DMS instance
+terraform -chdir=modules/06-dms output source_endpoint_arn       # source endpoint
+terraform -chdir=modules/06-dms output target_endpoint_arn       # target endpoint
+terraform -chdir=modules/06-dms output replication_task_arn      # migration task — start this after connectivity test
+terraform -chdir=modules/05-db  output cluster_endpoint          # Aurora writer endpoint (for app cutover)
+terraform -chdir=modules/04-s3  output bucket_id                 # S3 logs
+terraform -chdir=modules/01-kms output key_arn                   # CMK
 ```
 
 ---
@@ -180,33 +191,31 @@ terraform output kms_key_arn                   # CMK
 
 ```
 arc-database-migration-blueprint/
-├── main.tf                   # 6 ARC module blocks, in dependency order
-├── variables.tf              # all inputs with types & descriptions
-├── locals.tf                 # naming, tags, compliance overlays
-├── data.tf                   # caller identity, KMS policy, subnet lookups
-├── outputs.tf                # DMS ARNs, Aurora endpoint, S3, KMS
-├── version.tf                # Terraform + AWS provider pins
-├── .terraform-version        # tfenv pin (1.9.8)
-├── terraform.tfvars.example  # copy to terraform.tfvars
-├── modules/                  # one numbered wrapper per ARC module
+├── bootstrap/                 # creates the S3 + DynamoDB state backend (apply first)
+│   ├── main.tf · variables.tf · outputs.tf
+├── modules/                   # each folder is an independent Terraform root
 │   ├── 01-kms/
+│   │   ├── config.hcl         # static backend key
+│   │   ├── main.tf            # own backend "s3" {}, own provider, own module block
+│   │   ├── variables.tf
+│   │   ├── outputs.tf
+│   │   └── tfvars/{general,hipaa,pci}.tfvars
 │   ├── 02-network/
 │   ├── 03-security-group/
 │   ├── 04-s3/
 │   ├── 05-db/
 │   └── 06-dms/
+├── scripts/
+│   └── apply-module.sh        # apply one module with a chosen compliance profile
+├── Makefile                   # bootstrap / init / plan / apply / validate / fmt
+├── .terraform-version         # tfenv pin (1.9.8)
 ├── sample-app/                # SQL schema + verification script proving migration works
-├── examples/
-│   ├── README.md
-│   ├── general.tfvars
-│   ├── hipaa.tfvars
-│   └── pci_dss.tfvars
 ├── docs/
-│   ├── INSTALL.md            # macOS · Linux · Windows setup guide
-│   └── DEPLOYMENT.md        # full deployment + cutover + rollback
-├── GETTING-STARTED.md        # beginner walkthrough
+│   ├── INSTALL.md             # macOS · Linux · Windows setup guide
+│   └── DEPLOYMENT.md          # full deployment guide, connectivity testing, cutover checklist
+├── GETTING-STARTED.md         # beginner walkthrough
 ├── CONTRIBUTING.md
-├── CHANGELOG.md · LICENSE · NOTICE · Makefile · VERSION
+├── CHANGELOG.md · LICENSE · NOTICE · VERSION
 └── README.md
 ```
 
@@ -217,7 +226,7 @@ arc-database-migration-blueprint/
 - **[GETTING-STARTED.md](GETTING-STARTED.md)** — zero-to-live walkthrough for first-timers
 - **[docs/INSTALL.md](docs/INSTALL.md)** — install Terraform & AWS CLI on macOS / Linux / Windows
 - **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)** — full deployment guide, connectivity testing, cutover checklist
-- **[examples/README.md](examples/README.md)** — compliance-profile example files
+- **`modules/*/tfvars/{general,hipaa,pci}.tfvars`** — per-module compliance-profile example files
 
 ---
 
@@ -225,8 +234,8 @@ arc-database-migration-blueprint/
 
 - **The replication task does NOT auto-start.** `start_replication_task = false` is intentional — always test endpoint connectivity first before starting.
 - **Full-load-and-cdc requires binary logging** on the source: `binlog_format = ROW` for MySQL, `wal_level = logical` for PostgreSQL.
-- **Two-apply KMS pattern** — if you pre-create the KMS key on the first apply (`terraform apply -target=module.kms`), subsequent applies can reference the key ARN in DMS and Aurora. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
-- **App cutover** — for zero-downtime: run in `full-load-and-cdc` until lag is near zero, then flip your app connection string to `target_db_cluster_endpoint`, then stop the task.
+- **Two-apply KMS pattern** — the KMS key is created by `01-kms` before any module that references its ARN (`04-s3`, `05-db`, `06-dms`) is applied, since each module is applied in order and reads it via `terraform_remote_state`. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+- **App cutover** — for zero-downtime: run in `full-load-and-cdc` until lag is near zero, then flip your app connection string to the `05-db` module's `cluster_endpoint` output, then stop the task.
 
 ---
 

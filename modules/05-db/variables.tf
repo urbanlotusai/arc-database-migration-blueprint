@@ -1,55 +1,67 @@
-variable "name" {
-  type = string
-}
-
 variable "namespace" {
-  type = string
+  description = "Organization or team namespace"
+  type        = string
+  default     = "arc"
 }
 
 variable "environment" {
-  type = string
+  description = "Environment name"
+  type        = string
+  default     = "dev"
 }
 
-variable "engine" {
-  type = string
-}
-
-variable "engine_version" {
-  type = string
-}
-
-variable "port" {
-  type = number
-}
-
-variable "username" {
-  type = string
-}
-
-variable "vpc_id" {
-  type = string
-}
-
-variable "db_subnet_group_data" {
-  type = any
-}
-
-variable "kms_key_id" {
-  type = string
-}
-
-variable "instance_class" {
-  type = string
-}
-
-variable "backup_retention_period" {
-  type = number
-}
-
-variable "deletion_protection" {
-  type = bool
+variable "region" {
+  description = "AWS region"
+  type        = string
+  default     = "us-east-1"
 }
 
 variable "tags" {
-  type = map(string)
+  description = "Tags to apply to resources"
+  type        = map(string)
+  default = {
+    ManagedBy = "Terraform"
+    Project   = "arc-database-migration-blueprint"
+  }
+}
+
+variable "state_bucket_name" {
+  description = "S3 bucket name for Terraform state (used to read 01-kms and 02-network remote state)"
+  type        = string
+}
+
+variable "target_db_username" {
+  description = "Master username for the target Aurora cluster."
+  type        = string
+  default     = "dbadmin"
+}
+
+variable "target_db_engine" {
+  description = "Target Aurora engine: aurora-postgresql or aurora-mysql."
+  type        = string
+  default     = "aurora-postgresql"
+}
+
+variable "target_db_engine_version" {
+  description = "Target database engine version."
+  type        = string
+  default     = "15.4"
+}
+
+variable "target_db_instance_class" {
+  description = "DB instance class for the target Aurora cluster."
+  type        = string
+  default     = "db.r6g.large"
+}
+
+variable "backup_retention_period" {
+  description = "Number of days to retain automated backups for the target Aurora cluster."
+  type        = number
+  default     = 7
+}
+
+variable "deletion_protection" {
+  description = "Prevent accidental deletion of the target Aurora cluster."
+  type        = bool
+  default     = false
 }
