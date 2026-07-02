@@ -45,7 +45,7 @@ winget install Amazon.AWSCLI
 winget install Git.Git
 ```
 
-> 💡 WSL2 lets you use the macOS/Linux instructions as-is.
+>  WSL2 lets you use the macOS/Linux instructions as-is.
 
 ---
 

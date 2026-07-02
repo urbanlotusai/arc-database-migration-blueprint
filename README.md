@@ -37,12 +37,12 @@ Supports full-load, CDC (change data capture), and combined `full-load-and-cdc` 
 
 | Advantage | What it means for you |
 |---|---|
-| ⚡ **Minutes, not days** | A secure DMS pipeline with networking, encryption, and endpoints normally takes days to wire; this deploys in one command. |
-| 🔒 **Secure by default** | Single KMS CMK encrypts the DMS replication instance, target Aurora cluster, and S3 log bucket. All data in transit over SSL. |
-| 🔁 **Three migration modes** | `full-load`, `cdc`, or `full-load-and-cdc` — switch with a variable, no rewiring required. |
-| 🏛️ **Compliance-ready** | Built-in `general` / `hipaa` profiles activate Aurora PITR, deletion protection, and extended log retention. |
-| 🛠️ **Start manually** | The replication task is provisioned but not auto-started — test endpoint connectivity first, then trigger with one CLI command. |
-| 📦 **Portable & auditable** | Pure Terraform. Reproducible across environments. Rollback is `terraform destroy`. |
+| **Minutes, not days** | A secure DMS pipeline with networking, encryption, and endpoints normally takes days to wire; this deploys in one command. |
+| **Secure by default** | Single KMS CMK encrypts the DMS replication instance, target Aurora cluster, and S3 log bucket. All data in transit over SSL. |
+| **Three migration modes** | `full-load`, `cdc`, or `full-load-and-cdc` — switch with a variable, no rewiring required. |
+| **Compliance-ready** | Built-in `general` / `hipaa` profiles activate Aurora PITR, deletion protection, and extended log retention. |
+| **Start manually** | The replication task is provisioned but not auto-started — test endpoint connectivity first, then trigger with one CLI command. |
+| **Portable & auditable** | Pure Terraform. Reproducible across environments. Rollback is `terraform destroy`. |
 
 ---
 
