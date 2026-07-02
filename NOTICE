@@ -1,0 +1,13 @@
+ARC Database Migration Blueprint
+Copyright 2026 SourceFuse
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+
+This product composes the following SourceFuse ARC Terraform modules:
+  - sourcefuse/arc-kms/aws
+  - sourcefuse/arc-network/aws
+  - sourcefuse/arc-security-group/aws
+  - sourcefuse/arc-s3/aws
+  - sourcefuse/arc-db/aws
+  - sourcefuse/arc-dms/aws

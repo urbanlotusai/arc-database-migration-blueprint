@@ -1,0 +1,18 @@
+# Terraform
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+
+# Plans
+tfplan
+*.tfplan
+
+# Local variable files (never commit real secrets / account-specific values)
+terraform.tfvars
+*.auto.tfvars
+
+# OS
+.DS_Store

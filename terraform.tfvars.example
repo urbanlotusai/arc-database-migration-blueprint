@@ -1,0 +1,19 @@
+# ── Mandatory ─────────────────────────────────────────────────────────────────
+environment        = "prod"
+namespace          = "myorg"
+source_db_host     = "10.0.1.50"         # on-prem or peered-VPC host
+source_db_port     = 5432
+source_db_name     = "myapp_db"
+source_db_username = "migration_user"
+source_db_engine   = "postgres"
+target_db_password = "ChangeMe123!"      # use Secrets Manager in production
+
+# ── Optional overrides (defaults shown) ───────────────────────────────────────
+# region                   = "us-east-1"
+# vpc_cidr                 = "10.0.0.0/16"
+# target_db_engine         = "aurora-postgresql"
+# target_db_engine_version = "15.4"
+# target_db_instance_class = "db.r6g.large"
+# dms_instance_class       = "dms.t3.medium"
+# migration_type           = "full-load-and-cdc"
+# dms_multi_az             = false
