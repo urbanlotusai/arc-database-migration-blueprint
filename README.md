@@ -186,7 +186,16 @@ arc-database-migration-blueprint/
 ├── data.tf                   # caller identity, KMS policy, subnet lookups
 ├── outputs.tf                # DMS ARNs, Aurora endpoint, S3, KMS
 ├── version.tf                # Terraform + AWS provider pins
+├── .terraform-version        # tfenv pin (1.9.8)
 ├── terraform.tfvars.example  # copy to terraform.tfvars
+├── modules/                  # one numbered wrapper per ARC module
+│   ├── 01-kms/
+│   ├── 02-network/
+│   ├── 03-security-group/
+│   ├── 04-s3/
+│   ├── 05-db/
+│   └── 06-dms/
+├── sample-app/                # SQL schema + verification script proving migration works
 ├── examples/
 │   ├── README.md
 │   ├── general.tfvars

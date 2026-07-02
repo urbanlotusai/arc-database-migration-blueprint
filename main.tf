@@ -3,14 +3,12 @@
 #    Outputs consumed by: module.s3, module.db, module.dms
 # ═══════════════════════════════════════════════════════════════════════════════
 module "kms" {
-  source  = "sourcefuse/arc-kms/aws"
-  version = "1.0.11"
+  source = "./modules/01-kms"
 
   alias                   = local.kms_alias
   policy                  = data.aws_iam_policy_document.kms.json
   description             = "CMK for ${local.name_prefix} database migration"
   deletion_window_in_days = var.kms_deletion_window
-  enable_key_rotation     = true
 
   tags = local.tags
 }
@@ -20,8 +18,7 @@ module "kms" {
 #    Outputs consumed by: module.security_group, module.db, module.dms
 # ═══════════════════════════════════════════════════════════════════════════════
 module "network" {
-  source  = "sourcefuse/arc-network/aws"
-  version = "3.0.14"
+  source = "./modules/02-network"
 
   name        = local.name_prefix
   namespace   = var.namespace
@@ -36,8 +33,7 @@ module "network" {
 #    Outputs consumed by: module.db, module.dms
 # ═══════════════════════════════════════════════════════════════════════════════
 module "security_group" {
-  source  = "sourcefuse/arc-security-group/aws"
-  version = "0.0.5"
+  source = "./modules/03-security-group"
 
   name        = "${local.name_prefix}-migration"
   description = "Security group for DMS replication instance and target database"
@@ -81,8 +77,7 @@ module "security_group" {
 #    Outputs consumed by: module.dms (s3_endpoints)
 # ═══════════════════════════════════════════════════════════════════════════════
 module "s3" {
-  source  = "sourcefuse/arc-s3/aws"
-  version = "0.0.7"
+  source = "./modules/04-s3"
 
   name = local.log_bucket_name
 
@@ -107,30 +102,26 @@ module "s3" {
 #    Outputs consumed by: module.dms (target endpoint)
 # ═══════════════════════════════════════════════════════════════════════════════
 module "db" {
-  source  = "sourcefuse/arc-db/aws"
-  version = "4.0.4"
+  source = "./modules/05-db"
 
   name        = local.target_db_name
   namespace   = var.namespace
   environment = var.environment
 
   engine         = var.target_db_engine
-  engine_type    = "cluster"
   engine_version = var.target_db_engine_version
-  license_model  = "general-public-license"
   port           = var.target_db_engine == "aurora-postgresql" ? 5432 : 3306
 
   username = var.target_db_username
 
   # DB subnet group lookup — references the private subnets from module.network
-  vpc_id              = module.network.vpc_id
+  vpc_id = module.network.vpc_id
   db_subnet_group_data = {
     subnet_ids = data.aws_subnets.private.ids
   }
 
   # Encrypt at rest with the CMK
-  storage_encrypted = true
-  kms_key_id        = module.kms.key_arn
+  kms_key_id = module.kms.key_arn
 
   # Instance sizing
   instance_class = var.target_db_instance_class
@@ -147,8 +138,7 @@ module "db" {
 #    Orchestrates the actual data movement from source → target Aurora
 # ═══════════════════════════════════════════════════════════════════════════════
 module "dms" {
-  source  = "sourcefuse/arc-dms/aws"
-  version = "0.0.5"
+  source = "./modules/06-dms"
 
   prefix = local.name_prefix
 
@@ -160,7 +150,6 @@ module "dms" {
   instance_kms_key_arn    = module.kms.key_arn
 
   # ── Subnet group (DMS must run in the same VPC as the target DB) ───────────
-  create_subnet_group     = true
   subnet_group_id         = local.dms_subnet_group_id
   subnet_group_subnet_ids = data.aws_subnets.private.ids
 
@@ -204,7 +193,7 @@ module "dms" {
       replication_task_id    = local.replication_task_id
       migration_type         = var.migration_type
       table_mappings         = local.table_mappings
-      start_replication_task = false  # start manually after validating endpoints
+      start_replication_task = false # start manually after validating endpoints
 
       # Task settings: enable logging, CloudWatch metrics, full-LOB mode
       replication_task_settings = jsonencode({
@@ -212,13 +201,13 @@ module "dms" {
           EnableLogging = true
           LogComponents = [
             { Id = "SOURCE_UNLOAD", Severity = "LOGGER_SEVERITY_DEFAULT" },
-            { Id = "TARGET_LOAD",   Severity = "LOGGER_SEVERITY_DEFAULT" },
-            { Id = "TASK_MANAGER",  Severity = "LOGGER_SEVERITY_DEFAULT" }
+            { Id = "TARGET_LOAD", Severity = "LOGGER_SEVERITY_DEFAULT" },
+            { Id = "TASK_MANAGER", Severity = "LOGGER_SEVERITY_DEFAULT" }
           ]
         }
         TargetMetadata = { TargetSchema = "" }
         FullLoadSettings = {
-          TargetTablePrepMode = "DO_NOTHING"  # preserve existing data; change to DROP_AND_CREATE for fresh targets
+          TargetTablePrepMode = "DO_NOTHING" # preserve existing data; change to DROP_AND_CREATE for fresh targets
         }
       })
     }
