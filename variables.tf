@@ -114,8 +114,8 @@ variable "compliance_profile" {
   default     = "general"
 
   validation {
-    condition     = contains(["general", "hipaa"], var.compliance_profile)
-    error_message = "compliance_profile must be general or hipaa."
+    condition     = contains(["general", "hipaa", "pci_dss"], var.compliance_profile)
+    error_message = "compliance_profile must be general, hipaa, or pci_dss."
   }
 }
 

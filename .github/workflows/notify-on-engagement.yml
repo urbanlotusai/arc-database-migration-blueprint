@@ -1,0 +1,27 @@
+name: Engagement Notification
+
+on:
+  watch:
+    types: [started]
+  fork:
+
+jobs:
+  notify:
+    name: Notify on Star or Fork
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send email notification
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.NOTIFY_EMAIL_USER }}
+          password: ${{ secrets.NOTIFY_EMAIL_PASSWORD }}
+          subject: "[${{ github.repository }}] New ${{ github.event_name }} by @${{ github.actor }}"
+          body: |
+            Repository: https://github.com/${{ github.repository }}
+            Event: ${{ github.event_name }}
+            User: @${{ github.actor }}
+          to: rajiv.lokare@sourcefuse.com
+          from: ARC Blueprints <${{ secrets.NOTIFY_EMAIL_USER }}>

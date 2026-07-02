@@ -12,7 +12,8 @@ locals {
 
   # ── Compliance overlay ────────────────────────────────────────────────────────
   is_hipaa           = var.compliance_profile == "hipaa"
-  is_strict          = local.is_hipaa
+  is_pci_dss         = var.compliance_profile == "pci_dss"
+  is_strict          = local.is_hipaa || local.is_pci_dss
   log_retention_days = local.is_strict ? 365 : 90
 
   # ── Tagging ───────────────────────────────────────────────────────────────────

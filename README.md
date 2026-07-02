@@ -40,7 +40,7 @@ Supports full-load, CDC (change data capture), and combined `full-load-and-cdc` 
 | **Minutes, not days** | A secure DMS pipeline with networking, encryption, and endpoints normally takes days to wire; this deploys in one command. |
 | **Secure by default** | Single KMS CMK encrypts the DMS replication instance, target Aurora cluster, and S3 log bucket. All data in transit over SSL. |
 | **Three migration modes** | `full-load`, `cdc`, or `full-load-and-cdc` — switch with a variable, no rewiring required. |
-| **Compliance-ready** | Built-in `general` / `hipaa` profiles activate Aurora PITR, deletion protection, and extended log retention. |
+| **Compliance-ready** | Built-in `general` / `hipaa` / `pci_dss` profiles activate Aurora PITR, deletion protection, and extended log retention. |
 | **Start manually** | The replication task is provisioned but not auto-started — test endpoint connectivity first, then trigger with one CLI command. |
 | **Portable & auditable** | Pure Terraform. Reproducible across environments. Rollback is `terraform destroy`. |
 
@@ -158,6 +158,7 @@ Set `migration_type` in `terraform.tfvars` to switch modes.
 |---|---|
 | `general` | KMS rotation on, 90-day S3 log retention, 7-day Aurora PITR |
 | `hipaa` | Aurora PITR 35 days + deletion protection, 365-day S3 log retention |
+| `pci_dss` | Aurora PITR 35 days + deletion protection, 365-day S3 log retention, Multi-AZ DMS instance |
 
 ---
 
@@ -189,7 +190,8 @@ arc-database-migration-blueprint/
 ├── examples/
 │   ├── README.md
 │   ├── general.tfvars
-│   └── hipaa.tfvars
+│   ├── hipaa.tfvars
+│   └── pci_dss.tfvars
 ├── docs/
 │   ├── INSTALL.md            # macOS · Linux · Windows setup guide
 │   └── DEPLOYMENT.md        # full deployment + cutover + rollback
